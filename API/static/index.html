@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Generation Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        #preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        input[type="text"],
+        button,
+        select {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 10px;
+            color: red;
+        }
+
+        #loading {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Generate Image</h1>
+        <select id="modelSelect">
+            <option value="" disabled selected>Select a model</option>
+        </select>
+        <input type="text" id="prompt" placeholder="Enter your prompt here">
+        <button id="generateImage">Generate Image</button>
+
+        <div id="loading"></div>
+
+        <div id="preview"></div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Fetch the list of models on page load
+        async function fetchModels() {
+            try {
+                const response = await fetch('/list_models/');
+                const data = await response.json();
+                
+                const modelSelect = document.getElementById('modelSelect');
+                if (data.models) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = `${model.owner}/${model.name}`;
+                        option.textContent = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                } else {
+                    document.getElementById('message').textContent = 'No models found.';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = `Error fetching models: ${error.message}`;
+            }
+        }
+
+        fetchModels();
+
+        // Loading text animation
+        function startLoadingAnimation() {
+            const loadingDiv = document.getElementById('loading');
+            let dots = 0;
+            loadingDiv.style.display = 'block';
+            const intervalId = setInterval(() => {
+                dots = (dots + 1) % 5;
+                loadingDiv.textContent = 'Loading' + '.'.repeat(dots);
+            }, 500);
+            return intervalId;
+        }
+
+        function stopLoadingAnimation(intervalId) {
+            clearInterval(intervalId);
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        document.getElementById('generateImage').addEventListener('click', async () => {
+            const prompt = document.getElementById('prompt').value;
+            const model = document.getElementById('modelSelect').value;
+            const previewDiv = document.getElementById('preview');
+            const messageDiv = document.getElementById('message');
+            
+            if (!prompt || !model) {
+                messageDiv.textContent = 'Please enter a prompt and select a model.';
+                return;
+            }
+
+            const loadingInterval = startLoadingAnimation();
+            previewDiv.innerHTML = '';
+            messageDiv.textContent = '';
+
+            try {
+                const response = await fetch('/generate_image/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt, model })
+                });
+
+                const data = await response.json();
+                stopLoadingAnimation(loadingInterval);
+
+                if (response.ok) {
+                    previewDiv.innerHTML = `<img src="${data.image_url}" alt="Generated Image">`;
+                    messageDiv.textContent = '';
+                } else {
+                    messageDiv.textContent = `Error: ${data.detail}`;
+                }
+            } catch (error) {
+                stopLoadingAnimation(loadingInterval);
+                messageDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
